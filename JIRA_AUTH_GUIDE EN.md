@@ -2,7 +2,7 @@
 
 ## 🚨 Critical Authentication Findings
 
-After exhaustive tests with the instance `gacodev.atlassian.net`, specific authentication patterns were identified that **MUST BE KNOWN**:
+After exhaustive tests with the instance `organization.atlassian.net`, specific authentication patterns were identified that **MUST BE KNOWN**:
 
 ### ⚡ **Primary Discovery**
 **JIRA Cloud has different authentication levels per endpoint:**
@@ -13,18 +13,18 @@ After exhaustive tests with the instance `gacodev.atlassian.net`, specific authe
 
 ## 🔍 Authentication Problem Diagnosis
 
-### ❌ **Error Common: "Client must be authenticated"**
+### ❌ **Common Error: "Client must be authenticated"**
 ```bash
 # Symptoms
 {"errorMessages":["Client must be authenticated to access this resource."]}
 
 # Headers of response reveal the problem
 x-seraph-loginreason: AUTHENTICATED_FAILED
-www-authenticate: OAuth realm="https%3A%2F%2Finstance.atlassian.net"
+www-authenticate: OAuth realm="https%3A%2F%2Forganization.atlassian.net"
 ```
 
 **Possible causes:**
-1. Token inválido o expirado
+1. Invalid or expired token
 2. Endpoint requires OAuth instead of Basic Auth
 3. Instance configured with specific restrictions
 
@@ -40,20 +40,20 @@ headers = {
     "Content-Type": "application/json"
 }
 
-# ✅ FUNCIONA para majority of endpoints
+# ✅ Works for majority of endpoints
 response = requests.get(url, headers=headers, auth=auth)
 ```
 
 ### 2. API v3 Endpoints (RECOMMENDED)
 ```python
-# ✅ Endpoints que funcionan con Basic Auth
-url = f"{server}/rest/api/3/permissions"      # Info general
-url = f"{server}/rest/api/3/search"           # Búsqueda de issues  
-url = f"{server}/rest/api/3/issue/{key}"      # CRUD de issues
-url = f"{server}/rest/api/3/project"          # Gestión de proyectos
+# ✅ Endpoints that work with Basic Auth
+url = f"{server}/rest/api/3/permissions"      # General info
+url = f"{server}/rest/api/3/search"           # Issue search  
+url = f"{server}/rest/api/3/issue/{key}"      # Issue CRUD operations
+url = f"{server}/rest/api/3/project"          # Project management
 
-# ⚠️ Endpoints problemáticos (pueden requerir token específico)
-url = f"{server}/rest/api/3/myself"           # Info del usuario actual
+# ⚠️ Problematic endpoints (may require specific token)
+url = f"{server}/rest/api/3/myself"           # Current user info
 ```
 
 ### 3. JIRA Token Management
@@ -62,14 +62,14 @@ url = f"{server}/rest/api/3/myself"           # Info del usuario actual
 
 **Personal Access Token (RECOMMENDED)**
 - **Format**: `ATATT3xFfGF0...` - Long alphanumeric token
-- **Duración**: Permanente hasta revocación manual
-- **Permisos**: Hereda permisos del usuario
-- **Crear en**: https://id.atlassian.com/manage-profile/security/api-tokens
-- **✅ Funciona para**: 95% of operations CRUD
+- **Duration**: Permanent until manual revocation
+- **Permissions**: Inherits user permissions
+- **Create at**: https://id.atlassian.com/manage-profile/security/api-tokens
+- **✅ Works for**: 95% of CRUD operations
 
-**Token de Sesión (PROBLEMÁTICO)**  
-- **Formato**: `ATCTT3x...` - Token de sesión temporal
-- **Duración**: Limitada por política de sesión
+**Session Token (PROBLEMATIC)**  
+- **Format**: `ATCTT3x...` - Session temporary token
+- **Duration**: Limited by session policy
 - **⚠️ Problem**: Can fail in specific endpoints like `/myself`
 
 #### 🛠️ **Token Rotation Process - Validated**
@@ -104,7 +104,7 @@ Your account must have permissions to:
 ### Method 1: curl
 ```bash
 curl --request GET \
-  --url 'https://tucompania.atlassian.net/rest/api/3/myself' \
+  --url 'https://organization.atlassian.net/rest/api/3/myself' \
   --header 'Authorization: Bearer API_TOKEN' \
   --header 'Accept: application/json'
 ```
@@ -124,19 +124,19 @@ python main.py
 **🔍 Step-by-step Diagnosis:**
 ```bash
 # 1. Verify that the instance responds
-curl -I https://instance.atlassian.net
+curl -I https://organization.atlassian.net
 # Expect: HTTP/2 302 (redirect to login)
 
 # 2. Test endpoint without authentication
-curl https://instance.atlassian.net/rest/api/3/serverInfo
+curl https://organization.atlassian.net/rest/api/3/serverInfo
 # Expect: Server information (public)
 
 # 3. Test Basic Auth with simple endpoint
-curl -u "email:token" https://instance.atlassian.net/rest/api/3/permissions
+curl -u "email:token" https://organization.atlassian.net/rest/api/3/permissions
 # Expect: List of permissions (works with Basic Auth)
 
 # 4. If it fails, verify response headers
-curl -v -u "email:token" https://instance.atlassian.net/rest/api/3/myself
+curl -v -u "email:token" https://organization.atlassian.net/rest/api/3/myself
 # Search: x-seraph-loginreason and www-authenticate
 ```
 
@@ -149,7 +149,7 @@ curl -v -u "email:token" https://instance.atlassian.net/rest/api/3/myself
 - `/rest/api/3/issue` ✅
 
 **Endpoints that are problematic (require specific token):**
-- `/rest/api/3/myself` ⚠️ (50% of failure probability)
+- `/rest/api/3/myself` ⚠️ (50% failure rate)
 - Advanced management endpoints 🔒
 
 ### 🛠️ **Fallback Strategy Implemented**
@@ -168,7 +168,7 @@ def test_connection(self):
 ### 🔍 **Error: Forbidden (403)**
 **Symptom:** Valid token but no permissions
 ```json
-{"errorMessages":[],"errors":{"projectLead":"Debes indicar un responsable del proyecto válido."}}
+{"errorMessages":[],"errors":{"projectLead":"You must specify a valid project lead."}}
 ```
 **Solution:** Add `leadAccountId` obtained from `/rest/api/3/myself`
 
@@ -192,29 +192,29 @@ data = {
 
 Your `.env` file should look like this:
 ```env
-JIRA_SERVER=https://yourcompany.atlassian.net
-JIRA_EMAIL=your-email@yourcompany.com  # Only for reference
+JIRA_SERVER=https://organization.atlassian.net
+JIRA_EMAIL=your-email@organization.com  # Only for reference
 JIRA_API_TOKEN=your_api_token
 JIRA_PROJECT_KEY=PROJ
 ```
-
+    
 ## 🎯 **Production Validated Best Practices**
 
-### ✅ **DO - Do This**
+### ✅ **DO - Best Practices**
 1. **Use Personal Access Tokens** (ATATT3x...) for greater reliability
 2. **Test authentication** with `/rest/api/3/permissions` before complex operations
 3. **Implement fallback** for problem endpoints like `/myself`
 4. **Cache accountId** after the first successful query
 5. **Implement retry logic** for tokens that expire during execution
-6. **Logging detailed** of response headers for debugging
+6. **Enable detailed logging** of response headers for debugging
 
-### ❌ **DON'T - Avoid This**
+### ❌ **DON'T - Common Pitfalls**
 1. **Do not use Bearer tokens** for JIRA Cloud (use Basic Auth)
 2. **Do not assume that `/myself` always works** - have a backup plan
 3. **Do not create projects without `leadAccountId`** - always fails
 4. **Do not mix API v2 and v3** in the same application
 5. **Do not hardcode tokens** - use environment variables
-6. **Do not ignore error headers** - contain critical information
+6. **Do not ignore error headers** - they contain critical information
 
 ### 🔄 **Robust Retry Pattern**
 ```python
@@ -229,14 +229,14 @@ def robust_jira_request(url, method="GET", **kwargs):
     except Exception as e:
         logging.warning(f"Primary request failed: {e}")
     
-    # 2. Si falla /myself, usar /permissions para verificar auth
+    # 2. If /myself fails, use /permissions to verify auth
     if "/myself" in url:
         fallback_url = url.replace("/myself", "/permissions")
         try:
             test_response = requests.get(fallback_url, **kwargs)
             if test_response.status_code == 200:
-                logging.info("Auth works, /myself endpoint issue")
-                # Continuar con operación alternativa
+                logging.info("Auth works, issue with /myself endpoint")
+                # Continue with alternative operation
         except Exception:
             logging.error("Authentication completely failed")
     
